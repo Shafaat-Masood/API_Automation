@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>report.html</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    let visibleString = getQueryParameter('visible') || 'all';
+    visibleString = visibleString.toLowerCase();
+    const checkedItems = visibleString.split(',');
+
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++) {
+        filterItems[i].hidden = false;
+
+        if (visibleString != 'all') {
+            filterItems[i].checked = checkedItems.includes(filterItems[i].getAttribute('data-test-result'));
+            filterTable(filterItems[i]);
+        }
+    }
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 10-Mar-2023 at 15:56:07 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.2.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>JAVA_HOME</td>
+        <td>C:\Program Files\Java\jdk-19</td></tr>
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "pytest": "7.2.2"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19044-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.2.0", "metadata": "2.0.4"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.11.1</td></tr></table>
+    <h2>Summary</h2>
+    <p>7 tests ran in 6.86 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">7 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_1_Board_Create_Board</td>
+          <td class="col-duration">1.04</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     root:test_subscription_Microservice.py:19 Request Hit Successfully
+DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;POST /1/boards/ HTTP/1.1&quot; 200 1721
+DEBUG    root:requestsUtility.py:28 API response : {&#x27;id&#x27;: &#x27;640b0cc1e3e18106309919b9&#x27;, &#x27;name&#x27;: &#x27;Kaido&#x27;, &#x27;desc&#x27;: &#x27;&#x27;, &#x27;descData&#x27;: None, &#x27;closed&#x27;: False, &#x27;idOrganization&#x27;: &#x27;640839ca0ed8be124f00fbae&#x27;, &#x27;idEnterprise&#x27;: None, &#x27;pinned&#x27;: False, &#x27;url&#x27;: &#x27;https://trello.com/b/jrX3r8qh/kaido&#x27;, &#x27;shortUrl&#x27;: &#x27;https://trello.com/b/jrX3r8qh&#x27;, &#x27;prefs&#x27;: {&#x27;permissionLevel&#x27;: &#x27;private&#x27;, &#x27;hideVotes&#x27;: False, &#x27;voting&#x27;: &#x27;disabled&#x27;, &#x27;comments&#x27;: &#x27;members&#x27;, &#x27;invitations&#x27;: &#x27;members&#x27;, &#x27;selfJoin&#x27;: True, &#x27;cardCovers&#x27;: True, &#x27;isTemplate&#x27;: False, &#x27;cardAging&#x27;: &#x27;regular&#x27;, &#x27;calendarFeedEnabled&#x27;: False, &#x27;hiddenPluginBoardButtons&#x27;: [], &#x27;switcherViews&#x27;: [{&#x27;viewType&#x27;: &#x27;Board&#x27;, &#x27;enabled&#x27;: True, &#x27;_id&#x27;: &#x27;640b0cc1e3e18106309919ba&#x27;}, {&#x27;viewType&#x27;: &#x27;Table&#x27;, &#x27;enabled&#x27;: True, &#x27;_id&#x27;: &#x27;640b0cc1e3e18106309919bb&#x27;}, {&#x27;viewType&#x27;: &#x27;Calendar&#x27;, &#x27;enabled&#x27;: False, &#x27;_id&#x27;: &#x27;640b0cc1e3e18106309919bc&#x27;}, {&#x27;viewType&#x27;: &#x27;Dashboard&#x27;, &#x27;enabled&#x27;: False, &#x27;_id&#x27;: &#x27;640b0cc1e3e18106309919bd&#x27;}, {&#x27;viewType&#x27;: &#x27;Timeline&#x27;, &#x27;enabled&#x27;: False, &#x27;_id&#x27;: &#x27;640b0cc1e3e18106309919be&#x27;}, {&#x27;viewType&#x27;: &#x27;Map&#x27;, &#x27;enabled&#x27;: False, &#x27;_id&#x27;: &#x27;640b0cc1e3e18106309919bf&#x27;}], &#x27;background&#x27;: &#x27;blue&#x27;, &#x27;backgroundColor&#x27;: &#x27;#0079BF&#x27;, &#x27;backgroundImage&#x27;: None, &#x27;backgroundImageScaled&#x27;: None, &#x27;backgroundTile&#x27;: False, &#x27;backgroundBrightness&#x27;: &#x27;dark&#x27;, &#x27;backgroundBottomColor&#x27;: &#x27;#0079BF&#x27;, &#x27;backgroundTopColor&#x27;: &#x27;#0079BF&#x27;, &#x27;canBePublic&#x27;: True, &#x27;canBeEnterprise&#x27;: True, &#x27;canBeOrg&#x27;: True, &#x27;canBePrivate&#x27;: True, &#x27;canInvite&#x27;: True}, &#x27;labelNames&#x27;: {&#x27;green&#x27;: &#x27;&#x27;, &#x27;yellow&#x27;: &#x27;&#x27;, &#x27;orange&#x27;: &#x27;&#x27;, &#x27;red&#x27;: &#x27;&#x27;, &#x27;purple&#x27;: &#x27;&#x27;, &#x27;blue&#x27;: &#x27;&#x27;, &#x27;sky&#x27;: &#x27;&#x27;, &#x27;lime&#x27;: &#x27;&#x27;, &#x27;pink&#x27;: &#x27;&#x27;, &#x27;black&#x27;: &#x27;&#x27;, &#x27;green_dark&#x27;: &#x27;&#x27;, &#x27;yellow_dark&#x27;: &#x27;&#x27;, &#x27;orange_dark&#x27;: &#x27;&#x27;, &#x27;red_dark&#x27;: &#x27;&#x27;, &#x27;purple_dark&#x27;: &#x27;&#x27;, &#x27;blue_dark&#x27;: &#x27;&#x27;, &#x27;sky_dark&#x27;: &#x27;&#x27;, &#x27;lime_dark&#x27;: &#x27;&#x27;, &#x27;pink_dark&#x27;: &#x27;&#x27;, &#x27;black_dark&#x27;: &#x27;&#x27;, &#x27;green_light&#x27;: &#x27;&#x27;, &#x27;yellow_light&#x27;: &#x27;&#x27;, &#x27;orange_light&#x27;: &#x27;&#x27;, &#x27;red_light&#x27;: &#x27;&#x27;, &#x27;purple_light&#x27;: &#x27;&#x27;, &#x27;blue_light&#x27;: &#x27;&#x27;, &#x27;sky_light&#x27;: &#x27;&#x27;, &#x27;lime_light&#x27;: &#x27;&#x27;, &#x27;pink_light&#x27;: &#x27;&#x27;, &#x27;black_light&#x27;: &#x27;&#x27;}, &#x27;limits&#x27;: {}}
+CRITICAL root:helpers.py:20 File name specified<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_2_Board_create_ToDoList</td>
+          <td class="col-duration">0.81</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     root:test_subscription_Microservice.py:44 Request Hit Successfully
+DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;POST /1/lists/ HTTP/1.1&quot; 200 123
+DEBUG    root:requestsUtility.py:28 API response : {&#x27;id&#x27;: &#x27;640b0cc2092f9969017efa4b&#x27;, &#x27;name&#x27;: &#x27;ToDo&#x27;, &#x27;closed&#x27;: False, &#x27;idBoard&#x27;: &#x27;640b0cc1e3e18106309919b9&#x27;, &#x27;pos&#x27;: 16384, &#x27;limits&#x27;: {}}
+CRITICAL root:helpers.py:20 File name specified<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_3_Board_create_Done_List</td>
+          <td class="col-duration">0.82</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>INFO     root:test_subscription_Microservice.py:67 Request Hit Successfully
+DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;POST /1/lists/ HTTP/1.1&quot; 200 122
+DEBUG    root:requestsUtility.py:28 API response : {&#x27;id&#x27;: &#x27;640b0cc300152ef9555074f5&#x27;, &#x27;name&#x27;: &#x27;Done&#x27;, &#x27;closed&#x27;: False, &#x27;idBoard&#x27;: &#x27;640b0cc1e3e18106309919b9&#x27;, &#x27;pos&#x27;: 8192, &#x27;limits&#x27;: {}}
+CRITICAL root:helpers.py:20 File name specified<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_4_Board_create_Card_in_Todo_List</td>
+          <td class="col-duration">0.82</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;POST /1/cards/ HTTP/1.1&quot; 200 1133
+DEBUG    root:requestsUtility.py:28 API response : {&#x27;id&#x27;: &#x27;640b0cc4b381cd86acec069e&#x27;, &#x27;badges&#x27;: {&#x27;attachmentsByType&#x27;: {&#x27;trello&#x27;: {&#x27;board&#x27;: 0, &#x27;card&#x27;: 0}}, &#x27;location&#x27;: False, &#x27;votes&#x27;: 0, &#x27;viewingMemberVoted&#x27;: False, &#x27;subscribed&#x27;: False, &#x27;fogbugz&#x27;: &#x27;&#x27;, &#x27;checkItems&#x27;: 0, &#x27;checkItemsChecked&#x27;: 0, &#x27;checkItemsEarliestDue&#x27;: None, &#x27;comments&#x27;: 0, &#x27;attachments&#x27;: 0, &#x27;description&#x27;: False, &#x27;due&#x27;: None, &#x27;dueComplete&#x27;: False, &#x27;start&#x27;: None}, &#x27;checkItemStates&#x27;: [], &#x27;closed&#x27;: False, &#x27;dueComplete&#x27;: False, &#x27;dateLastActivity&#x27;: &#x27;2023-03-10T10:56:04.274Z&#x27;, &#x27;desc&#x27;: &#x27;&#x27;, &#x27;descData&#x27;: {&#x27;emoji&#x27;: {}}, &#x27;due&#x27;: None, &#x27;dueReminder&#x27;: None, &#x27;email&#x27;: None, &#x27;idBoard&#x27;: &#x27;640b0cc1e3e18106309919b9&#x27;, &#x27;idChecklists&#x27;: [], &#x27;idList&#x27;: &#x27;640b0cc2092f9969017efa4b&#x27;, &#x27;idMembers&#x27;: [], &#x27;idMembersVoted&#x27;: [], &#x27;idShort&#x27;: 1, &#x27;idAttachmentCover&#x27;: None, &#x27;labels&#x27;: [], &#x27;idLabels&#x27;: [], &#x27;manualCoverAttachment&#x27;: False, &#x27;name&#x27;: &#x27;Learning Postman&#x27;, &#x27;pos&#x27;: 16384, &#x27;shortLink&#x27;: &#x27;K0JBYl3A&#x27;, &#x27;shortUrl&#x27;: &#x27;https://trello.com/c/K0JBYl3A&#x27;, &#x27;start&#x27;: None, &#x27;subscribed&#x27;: False, &#x27;url&#x27;: &#x27;https://trello.com/c/K0JBYl3A/1-learning-postman&#x27;, &#x27;cover&#x27;: {&#x27;idAttachment&#x27;: None, &#x27;color&#x27;: None, &#x27;idUploadedBackground&#x27;: None, &#x27;size&#x27;: &#x27;normal&#x27;, &#x27;brightness&#x27;: &#x27;dark&#x27;, &#x27;idPlugin&#x27;: None}, &#x27;isTemplate&#x27;: False, &#x27;cardRole&#x27;: None, &#x27;attachments&#x27;: [], &#x27;stickers&#x27;: [], &#x27;limits&#x27;: {}}
+CRITICAL root:helpers.py:20 File name specified<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_5_Board_Move_Card_in_Done_List</td>
+          <td class="col-duration">0.81</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;PUT /1/cards/640b0cc4b381cd86acec069e HTTP/1.1&quot; 200 1090
+DEBUG    root:requestsUtility.py:57 API response : {&#x27;id&#x27;: &#x27;640b0cc4b381cd86acec069e&#x27;, &#x27;badges&#x27;: {&#x27;attachmentsByType&#x27;: {&#x27;trello&#x27;: {&#x27;board&#x27;: 0, &#x27;card&#x27;: 0}}, &#x27;location&#x27;: False, &#x27;votes&#x27;: 0, &#x27;viewingMemberVoted&#x27;: False, &#x27;subscribed&#x27;: False, &#x27;fogbugz&#x27;: &#x27;&#x27;, &#x27;checkItems&#x27;: 0, &#x27;checkItemsChecked&#x27;: 0, &#x27;checkItemsEarliestDue&#x27;: None, &#x27;comments&#x27;: 0, &#x27;attachments&#x27;: 0, &#x27;description&#x27;: False, &#x27;due&#x27;: None, &#x27;dueComplete&#x27;: False, &#x27;start&#x27;: None}, &#x27;checkItemStates&#x27;: [], &#x27;closed&#x27;: False, &#x27;dueComplete&#x27;: False, &#x27;dateLastActivity&#x27;: &#x27;2023-03-10T10:56:05.152Z&#x27;, &#x27;desc&#x27;: &#x27;&#x27;, &#x27;descData&#x27;: {&#x27;emoji&#x27;: {}}, &#x27;due&#x27;: None, &#x27;dueReminder&#x27;: None, &#x27;email&#x27;: None, &#x27;idBoard&#x27;: &#x27;640b0cc1e3e18106309919b9&#x27;, &#x27;idChecklists&#x27;: [], &#x27;idList&#x27;: &#x27;640b0cc300152ef9555074f5&#x27;, &#x27;idMembers&#x27;: [], &#x27;idMembersVoted&#x27;: [], &#x27;idShort&#x27;: 1, &#x27;idAttachmentCover&#x27;: None, &#x27;labels&#x27;: [], &#x27;idLabels&#x27;: [], &#x27;manualCoverAttachment&#x27;: False, &#x27;name&#x27;: &#x27;Learning Postman&#x27;, &#x27;pos&#x27;: 16384, &#x27;shortLink&#x27;: &#x27;K0JBYl3A&#x27;, &#x27;shortUrl&#x27;: &#x27;https://trello.com/c/K0JBYl3A&#x27;, &#x27;start&#x27;: None, &#x27;subscribed&#x27;: False, &#x27;url&#x27;: &#x27;https://trello.com/c/K0JBYl3A/1-learning-postman&#x27;, &#x27;cover&#x27;: {&#x27;idAttachment&#x27;: None, &#x27;color&#x27;: None, &#x27;idUploadedBackground&#x27;: None, &#x27;size&#x27;: &#x27;normal&#x27;, &#x27;brightness&#x27;: &#x27;dark&#x27;, &#x27;idPlugin&#x27;: None}, &#x27;isTemplate&#x27;: False, &#x27;cardRole&#x27;: None}
+CRITICAL root:helpers.py:20 File name specified<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_6_Board_Delete_Board</td>
+          <td class="col-duration">1.62</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;DELETE /1/boards/640b0cc1e3e18106309919b9 HTTP/1.1&quot; 200 16
+DEBUG    root:requestsUtility.py:46 API response : {&#x27;_value&#x27;: None}<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test/customer/test_subscription_Microservice.py::test_7_Board_retrieve_Deleted_Board</td>
+          <td class="col-duration">0.61</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -------------------------------Captured log call-------------------------------- <br/>DEBUG    urllib3.connectionpool:connectionpool.py:1003 Starting new HTTPS connection (1): api.trello.com:443
+DEBUG    urllib3.connectionpool:connectionpool.py:456 https://api.trello.com:443 &quot;GET /1/boards/640b0cc1e3e18106309919b9 HTTP/1.1&quot; 404 37<br/></div></td></tr></tbody></table></body></html>
