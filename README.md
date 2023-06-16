@@ -53,10 +53,10 @@ Throughout the project Comments have been placed to increase code readability.
 Automated Test Cases
 Following are the test cases that have been automated:
 
-test_1_Board_Create_Board
-test_2_Board_Create_ToDoList
-test_3_Board_Create_DoneList
-test_4_Board_Create_CardinToDoList
-test_5_Board_Move_Card_in_DoneList
-test_6_Board_Delete_Board
-test_7_Board_Retrieve_Deleted_Board
+1. test_1_Board_Create_Board
+2. test_2_Board_Create_ToDoList
+3. test_3_Board_Create_DoneList
+4. test_4_Board_Create_CardinToDoList
+5. test_5_Board_Move_Card_in_DoneList
+6. test_6_Board_Delete_Board
+7. test_7_Board_Retrieve_Deleted_Board
