@@ -146,6 +146,6 @@ def test_7_Board_retrieve_Deleted_Board():
         In Trello there are two options with which a board can be deleted,
         1. Temporary Delete and the 2. one is permanent delete so in test case 6 
         we are deleting the board permanently so we cannot retrieve a permanently deleted board.
-        So the status code for the above api would be 404, against which the epected code is also 404 given.
+        So the status code for the above api would be 404, against which the expected code is also 404 given.
     """
 
