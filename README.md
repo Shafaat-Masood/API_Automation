@@ -36,7 +36,7 @@ How to Run framework?
 
 The framework should be run using the command:-
 
-	pytest -k Production –html=report.html
+	pytest -k Production -–html=report.html
 
 
 
